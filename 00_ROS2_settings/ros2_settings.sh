@@ -24,63 +24,77 @@ export CYCLONEDDS_URI=file:///home/won/cycloneDDS_setting/cycloneDDS_lo_udp.xml
 
 export CYCLONEDDS_LOG_LEVEL=info
 
-# 색상 정의
+# ===============================================================
+# 색상 정의 추가 (GREEN, BLUE 추가)
+# ===============================================================
 YELLOW="\033[33m"
-RESET="\033[0m"
+GREEN="\033[32m"
+BLUE="\033[34m"
 RED="\033[31m"
+RESET="\033[0m"
 
+source /opt/ros/humble/setup.zsh
+alias humble="source /opt/ros/humble/setup.zsh; echo '🐢 /opt/ros/humble/setup.zsh'"
 
 # ===============================================================
-# 3. 워크스페이스 관리 함수 (누적 로드 버전)
+# 워크스페이스 관리 함수 (선택적 누적 및 초기화 버전)
 # ===============================================================
+
 ws() {
     local ws_name="$1"
     : ${ROS_DISTRO:=humble}
-    : ${ROS_DOMAIN_ID:=77}
-    
-    # 1. 이전 환경의 유령(Ghost) 경로들 완전히 제거
-    if [ -z "$ROS_ENV_LOADED" ]; then
-        # ROS 2가 이전 워크스페이스를 기억할 때 사용하는 핵심 변수 4가지 제거
-        unset AMENT_PREFIX_PATH
-        unset COLCON_PREFIX_PATH
-        unset CMAKE_PREFIX_PATH
-        unset PYTHONPATH
 
-        # 기본 ROS 2 환경 로드 (이때 기존 경로를 참조하지 않게 됨)
+    # 1. 기본 ROS 2 환경 로드 (최초 1회 또는 초기화 후 실행)
+    # AMENT_PREFIX_PATH가 없거나 /opt/ros만 남았을 때 기본을 잡아줍니다.
+    if [[ -z "$AMENT_PREFIX_PATH" || "$AMENT_PREFIX_PATH" == "/opt/ros/$ROS_DISTRO" ]]; then
         if [ -f "/opt/ros/$ROS_DISTRO/setup.zsh" ]; then
             source "/opt/ros/$ROS_DISTRO/setup.zsh"
-            export ROS_ENV_LOADED=1
-            echo -e "${YELLOW}Base ROS 2 ($ROS_DISTRO) environment cleaned and initialized.${RESET}"
+            echo -e "${YELLOW}Base ROS 2 ($ROS_DISTRO) initialized.${RESET}"
         fi
     fi
-    
-    # 2. 원하는 워크스페이스만 누적 로드
+
+    # 2. 특정 워크스페이스의 '현재 패키지만' 누적 로드
+    # local_setup.zsh를 사용하면 빌드 시점의 부모(Underlays)를 무시하고 
+    # 현재 워크스페이스의 패키지만 환경 변수에 추가합니다.
     local TARGET_PATH="$HOME/$ws_name/install/local_setup.zsh"
-    
+
     if [ -f "$TARGET_PATH" ]; then
         source "$TARGET_PATH"
-        echo -e "${YELLOW}Workspace '$ws_name' is now overlaid.${RESET}"
+        echo -e "${GREEN}Workspace '$ws_name' added to current environment.${RESET}"
     else
         echo -e "${RED}Error: $TARGET_PATH not found. Did you build it?${RESET}"
     fi
 }
 
-ros2_status() {
-    echo "ROS_DOMAIN_ID     : ${ROS_DOMAIN_ID:-0}"
-    echo "ROS_LOCALHOST_ONLY: ${ROS_LOCALHOST_ONLY:-0}"
-    echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-0}"
+# 모든 추가 경로를 지우고 기본 ROS 환경으로 되돌리는 함수
+ws_reset() {
+    local ROS_DISTRO=${1:-humble}
+    
+    # [핵심 수정] 기존에 누적된 모든 ROS 관련 경로 변수를 강제로 제거합니다.
+    unset AMENT_PREFIX_PATH
+    unset COLCON_PREFIX_PATH
+    unset ROS_PREFIX_PATH
+    
+    if [ -f "/opt/ros/$ROS_DISTRO/setup.zsh" ]; then
+        # 변수가 비워진 상태에서 기본 setup을 실행하면 /opt/ros/humble만 깔끔하게 남습니다.
+        source "/opt/ros/$ROS_DISTRO/setup.zsh"
+        echo -e "${BLUE}Environment reset to Base ROS 2 ($ROS_DISTRO) only.${RESET}"
+    else
+        echo -e "${RED}Error: Base ROS 2 not found at /opt/ros/$ROS_DISTRO${RESET}"
+    fi
 }
+
 
 # ========================================================
 # 4. Aliases
 # ========================================================
-alias humble='source /opt/ros/humble/setup.zsh; echo \🐢/opt/ros/humble/setup.zsh\'
+
 
 # log tools
 alias roslog="ccze -A"
 alias roserr="grep -E 'WARN|ERROR'"
 
-alias cb='cd ~/ros2_ws && colcon build --symlink-install'
+#alias cb='cd ~/ros2_ws && colcon build --symlink-install'
 alias cbs='colcon build --symlink-install'
 alias cbp='colcon build --symlink-install --packages-select'
 alias cbu='colcon build --symlink-install --packages-up-to'
@@ -100,15 +114,22 @@ alias di='rosdep install --from-paths src -y --ignore-src --os=ubuntu:jammy'
 
 # ========================================================
 alias killgazebo='killall -9 gazebo & killall -9 gzserver & killall -9 gzclient'
+#export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/home/won/.gazebo/my_models
+#export GAZEBO_RESOURCE_PATH=/usr/share/gazebo-11
+
 export GAZEBO_RESOURCE_PATH=/usr/share/gazebo-11
+
+#export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/home/won/.gazebo/my_models:/usr/share/gazebo-11/models:~/.gazebo/models
+#export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins
+# 경로 변수가 비어있을 경우 콜론(:)이 앞에 붙지 않도록 안전하게 처리
+export GAZEBO_MODEL_PATH="${GAZEBO_MODEL_PATH:+$GAZEBO_MODEL_PATH:}/home/won/.gazebo/my_models:/usr/share/gazebo-11/models:~/.gazebo/models"
+export GAZEBO_PLUGIN_PATH="${GAZEBO_PLUGIN_PATH:+$GAZEBO_PLUGIN_PATH:}/usr/lib/x86_64-linux-gnu/gazebo-11/plugins"
+
 export GAZEBO_MODEL_DATABASE_URI=""
-#export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/home/won/.gazebo/my_models:/home/won/building_editor_models:/home/won/.gazebo/hartyao_models
 export IGN_FUEL_DISABLE=1
-export GAZEBO_MODEL_DATABASE_URI=""
-#export IGN_PARTITION=DongWon
 export IGN_TRANSPORT_LOG_LEVEL=error
 # ========================================================
-# NVIDIA GPU 가속 강제 사용 설정
+# NVIDIA GPU 가속 강제 사용 설정(#노트북 전용#)
 export __NV_PRIME_RENDER_OFFLOAD=1
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 # ========================================================
