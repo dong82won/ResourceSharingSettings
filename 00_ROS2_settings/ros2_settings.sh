@@ -43,6 +43,7 @@ alias humble="source /opt/ros/humble/setup.zsh; echo '🐢 /opt/ros/humble/setup
 ws() {
     local ws_name="$1"
     : ${ROS_DISTRO:=humble}
+    : ${ROS_DOMAIN_ID:=77}
 
     # 1. 기본 ROS 2 환경 로드 (최초 1회 또는 초기화 후 실행)
     # AMENT_PREFIX_PATH가 없거나 /opt/ros만 남았을 때 기본을 잡아줍니다.
@@ -84,6 +85,11 @@ ws_reset() {
     fi
 }
 
+ros2_status() {
+    echo "ROS_DOMAIN_ID     : ${ROS_DOMAIN_ID:-0}"
+    echo "ROS_LOCALHOST_ONLY: ${ROS_LOCALHOST_ONLY:-0}"
+    echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-0}"
+}
 
 # ========================================================
 # 4. Aliases
